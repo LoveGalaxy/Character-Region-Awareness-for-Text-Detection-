@@ -57,17 +57,17 @@ class UP_VGG(nn.Module):
         super(UP_VGG, self).__init__()
         self.layers = []
         self.up_layers = []
-        self.layers += [Base_down_block(3, 64, 2),
+        self.layers += nn.Sequential(*[Base_down_block(3, 64, 2),
                         Base_down_block(64, 128, 2),
                         Base_down_block(128, 256, 3),
                         Base_down_block(256, 512, 3),
                         Base_down_block(512, 512, 3),
-                        Base_down_block(512, 512, 3)]
+                        Base_down_block(512, 512, 3),])
 
-        self.up_layers += [Base_up_block(512+512, 256),
+        self.up_layers += nn.Sequential(*[Base_up_block(512+512, 256),
                         Base_up_block(512+256, 128),
                         Base_up_block(256+128, 64),
-                        Base_up_block(128+64, 32)]
+                        Base_up_block(128+64, 32)])
 
         self.detector = nn.Sequential(*[Base_with_bn_block(32, 32, 3),
                         Base_with_bn_block(32, 32, 3),
@@ -81,20 +81,21 @@ class UP_VGG(nn.Module):
 
     def forward(self, x):
         features = []
-        for layer in self.layers[:-1]:
-            x = layer(x)
+        for i in range(5):
+            x = self.layers[i](x)
             x = self.pooling(x)
             features.append(x)
         x = self.layers[-1](x)
-        for index, layer in enumerate(self.up_layers):
-            x = layer(features[-index-1], x)
+        for index in range(4):
+            x = self.up_layers[index](features[-index-1], x)
         x = self.detector(x)
         reg = self.region(x)
         aff = self.affinity(x)
         return reg, aff
 
 if __name__ == "__main__":
-    x = torch.randn(1, 3, 256, 256).to("cuda")
-    net = UP_VGG().to("cuda")
+    x = torch.randn(1, 3, 256, 256)#.to("cuda")
+    net = UP_VGG()#.to("cuda")
     reg, aff = net(x)
+    print(net)
     print(reg.shape, aff.shape)
