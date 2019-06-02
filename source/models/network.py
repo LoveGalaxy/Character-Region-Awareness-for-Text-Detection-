@@ -94,7 +94,7 @@ class UP_VGG(nn.Module):
         return reg, aff
 
 if __name__ == "__main__":
-    x = torch.randn(1, 3, 256, 256)
-    net = UP_VGG()
+    x = torch.randn(1, 3, 256, 256).to("cuda")
+    net = UP_VGG().to("cuda")
     reg, aff = net(x)
     print(reg.shape, aff.shape)
