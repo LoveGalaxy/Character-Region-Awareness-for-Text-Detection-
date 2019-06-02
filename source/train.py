@@ -15,7 +15,7 @@ def run():
     image_size = (3, 320, 320)
 
     train_dataset = SynthText.SynthText(image_size=(3, 320, 320))
-    train_dataLoader = DataLoader(train_dataset, 1, shuffle=False, num_workers=4)
+    train_dataLoader = DataLoader(train_dataset, 16, shuffle=False, num_workers=4)
     # test_dataset = ReCTS(img_size=image_size, ischar=True, istrain=False)
     # test_dataLoader = DataLoader(test_dataset, 64, shuffle=False, num_workers=4)
 
@@ -32,8 +32,8 @@ def run():
     for e in range(100):
         # train
         total_loss = 0.0
-        conf_loss = 0.0
-        local_loss = 0.0
+        char_loss = 0.0
+        aff_loss = 0.0
         class_loss = 0.0
         total_count = 0
         all_count = 0

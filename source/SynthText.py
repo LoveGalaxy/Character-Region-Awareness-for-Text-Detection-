@@ -18,13 +18,26 @@ class SynthText(Dataset):
         self.data_dir_path = data_dir_path
         self.data_file_name = data_file_name
         print("load data, please wait a moment...")
-        self.gt = scio.loadmat(os.path.join(self.data_dir_path, self.data_file_name))
+
+        self.agt = scio.loadmat(os.path.join(self.data_dir_path, self.data_file_name))
         self.istrain = istrain
+        self.gt = {}
+        if istrain:
+            self.gt["txt"] = self.agt["txt"][0][:100000]
+            self.gt["imnames"] = self.agt["imnames"][0][:100000]
+            self.gt["charBB"] = self.agt["charBB"][0][:100000]
+            self.gt["wordBB"] = self.agt["wordBB"][0][:100000]
+        else:
+            self.gt["txt"] = self.agt["txt"][0][100000:120000]
+            self.gt["imnames"] = self.agt["imnames"][0][100000:120000]
+            self.gt["charBB"] = self.agt["charBB"][0][100000:120000]
+            self.gt["wordBB"] = self.agt["wordBB"][0][100000:120000]
+
         self.image_size = image_size
         self.down_rate = down_rate
     
     def __len__(self):
-        return self.gt["txt"][0].shape[0]
+        return self.gt["txt"].shape[0]
     
     def resize(self, image, char_label, word_laebl):
         w, h = image.size
@@ -61,14 +74,14 @@ class SynthText(Dataset):
         return img, char_label, word_laebl
 
     def __getitem__(self, idx):
-        img_name = self.gt["imnames"][0][idx][0]
+        img_name = self.gt["imnames"][idx][0]
         image  = Image.open(os.path.join(self.data_dir_path, img_name))
-        char_label = self.gt["charBB"][0][idx].transpose(2, 1, 0)
-        if len(self.gt["wordBB"][0][idx].shape) == 3:
-            word_laebl = self.gt["wordBB"][0][idx].transpose(2, 1, 0)
+        char_label = self.gt["charBB"][idx].transpose(2, 1, 0)
+        if len(self.gt["wordBB"][idx].shape) == 3:
+            word_laebl = self.gt["wordBB"][idx].transpose(2, 1, 0)
         else:
-            word_laebl = self.gt["wordBB"][0][idx].transpose(1, 0)[np.newaxis, :]
-        txt_label = self.gt["txt"][0][idx]
+            word_laebl = self.gt["wordBB"][idx].transpose(1, 0)[np.newaxis, :]
+        txt_label = self.gt["txt"][idx]
 
         img, char_label, word_laebl = self.resize(image, char_label, word_laebl)
         char_label = char_label / self.down_rate

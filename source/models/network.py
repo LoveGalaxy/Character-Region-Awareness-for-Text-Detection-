@@ -55,16 +55,14 @@ class Base_up_block(nn.Module):
 class UP_VGG(nn.Module):
     def __init__(self):
         super(UP_VGG, self).__init__()
-        self.layers = []
-        self.up_layers = []
-        self.layers += nn.Sequential(*[Base_down_block(3, 64, 2),
+        self.layers = nn.Sequential(*[Base_down_block(3, 64, 2),
                         Base_down_block(64, 128, 2),
                         Base_down_block(128, 256, 3),
                         Base_down_block(256, 512, 3),
                         Base_down_block(512, 512, 3),
                         Base_down_block(512, 512, 3),])
 
-        self.up_layers += nn.Sequential(*[Base_up_block(512+512, 256),
+        self.up_layers = nn.Sequential(*[Base_up_block(512+512, 256),
                         Base_up_block(512+256, 128),
                         Base_up_block(256+128, 64),
                         Base_up_block(128+64, 32)])
@@ -94,8 +92,8 @@ class UP_VGG(nn.Module):
         return reg, aff
 
 if __name__ == "__main__":
-    x = torch.randn(1, 3, 256, 256)#.to("cuda")
-    net = UP_VGG()#.to("cuda")
+    x = torch.randn(1, 3, 256, 256).to("cuda")
+    net = UP_VGG().to("cuda")
     reg, aff = net(x)
     print(net)
     print(reg.shape, aff.shape)
