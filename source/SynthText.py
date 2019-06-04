@@ -23,15 +23,15 @@ class SynthText(Dataset):
         self.istrain = istrain
         self.gt = {}
         if istrain:
-            self.gt["txt"] = self.agt["txt"][0][:100000]
-            self.gt["imnames"] = self.agt["imnames"][0][:100000]
-            self.gt["charBB"] = self.agt["charBB"][0][:100000]
-            self.gt["wordBB"] = self.agt["wordBB"][0][:100000]
+            self.gt["txt"] = self.agt["txt"][0][:50000]
+            self.gt["imnames"] = self.agt["imnames"][0][:50000]
+            self.gt["charBB"] = self.agt["charBB"][0][:50000]
+            self.gt["wordBB"] = self.agt["wordBB"][0][:50000]
         else:
-            self.gt["txt"] = self.agt["txt"][0][100000:120000]
-            self.gt["imnames"] = self.agt["imnames"][0][100000:120000]
-            self.gt["charBB"] = self.agt["charBB"][0][100000:120000]
-            self.gt["wordBB"] = self.agt["wordBB"][0][100000:120000]
+            self.gt["txt"] = self.agt["txt"][0][50000:60000]
+            self.gt["imnames"] = self.agt["imnames"][0][50000:60000]
+            self.gt["charBB"] = self.agt["charBB"][0][50000:60000]
+            self.gt["wordBB"] = self.agt["wordBB"][0][50000:60000]
 
         self.image_size = image_size
         self.down_rate = down_rate
