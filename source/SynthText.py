@@ -111,7 +111,7 @@ class SynthText(Dataset):
                         char_boxes.append([x0, y0, x1, y1, x2, y2, x3, y3])
                         box, deta_x, deta_y = utils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
                         if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
-                            print(idx, deta_x, deta_y)
+                            # print(idx, deta_x, deta_y)
                             char_index += 1
                             continue
                         try:

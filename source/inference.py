@@ -1,13 +1,12 @@
 import torch
+import cv2
+import numpy as np
 
-def activate_map(reg, aff, reg_threshold, aff_threshold):
-    b, c, h, w = reg.shape
-    m = reg[:, 0] > reg_threshold  
-    m += aff[:, 0] > aff_threshold
-    return m
+def get_detct_box(gre, aff, thread_g=0.1, thread_a=0.1):
+    # simple imple
+    m = (gre > thread_g) + (aff > thread_a).astype(np.uint8)
+    num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(m, 4, cv2.CV_32S)
+    return num_labels, labels, stats, centroids
 
 if __name__ == "__main__":
-    reg = torch.ones(1, 1, 30, 30)
-    aff = torch.ones(1, 1, 30, 30)
-    m = activate_map(reg, aff, 0.5, 0.5)
-    print(m)
+    pass

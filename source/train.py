@@ -72,44 +72,44 @@ def run():
             aff_loss += loss_l.item()
         print(TicToc.format_time(), e, i, total_loss, char_loss, aff_loss)
 
-        # # test
-        # vgg.eval()
-        # test_total_loss = 0.0
-        # test_char_loss = 0.0
-        # test_aff_loss = 0.0
+        # test
+        with torch.no_grad():
+            test_total_loss = 0.0
+            test_char_loss = 0.0
+            test_aff_loss = 0.0
 
-        # min_test_loss = 0.0
-        
-        # for i, batch_data in enumerate(test_dataLoader):
-        #     image = batch_data["image"].type(torch.FloatTensor) / 255 - 0.5
-        #     image = image.to("cuda")
-        #     reg, aff = vgg(image)
-        #     predict_r = torch.squeeze(reg, dim=1)
-        #     predict_l = torch.squeeze(aff, dim=1)
+            min_test_loss = 0.0
+            
+            for i, batch_data in enumerate(test_dataLoader):
+                image = batch_data["image"].type(torch.FloatTensor) / 255 - 0.5
+                image = image.to("cuda")
+                reg, aff = vgg(image)
+                predict_r = torch.squeeze(reg, dim=1)
+                predict_l = torch.squeeze(aff, dim=1)
 
-        #     targets_r = batch_data["char_gt"].type(torch.FloatTensor)
-        #     targets_r = targets_r.to("cuda")
+                targets_r = batch_data["char_gt"].type(torch.FloatTensor)
+                targets_r = targets_r.to("cuda")
 
-        #     targets_l = batch_data["aff_gt"].type(torch.FloatTensor)
-        #     targets_l = targets_l.to("cuda")
+                targets_l = batch_data["aff_gt"].type(torch.FloatTensor)
+                targets_l = targets_l.to("cuda")
 
-        #     loss_r = crite(predict_r, targets_r)
-        #     loss_l = crite(predict_l, targets_l)
+                loss_r = crite(predict_r, targets_r)
+                loss_l = crite(predict_l, targets_l)
 
-        #     loss = loss_r + loss_l 
+                loss = loss_r + loss_l 
 
-        #     test_total_loss += loss.item()
-        #     test_char_loss += loss_r.item()
-        #     test_aff_loss += loss_l.item()
-        # print(TicToc.format_time(), e, i, test_total_loss, test_char_loss, test_aff_loss)
+                test_total_loss += loss.item()
+                test_char_loss += loss_r.item()
+                test_aff_loss += loss_l.item()
+            print(TicToc.format_time(), e, i, test_total_loss, test_char_loss, test_aff_loss)
 
         if e == 0:
-            min_test_loss = total_loss
-            torch.save(vgg, "./model/vgg_{0}.pkl".format(e))
+            min_test_loss = test_total_loss
+            torch.save(vgg, "./model/vgg.pkl")
         elif total_loss < min_test_loss:
             print("save: ", e)
-            min_test_loss = total_loss
-            torch.save(vgg, "./model/vgg_{0}.pkl".format(e))
+            min_test_loss = test_total_loss
+            torch.save(vgg, "./model/vgg.pkl")
 
 if __name__ == "__main__":
     run()
