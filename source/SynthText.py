@@ -23,10 +23,10 @@ class SynthText(Dataset):
         self.istrain = istrain
         self.gt = {}
         if istrain:
-            self.gt["txt"] = self.agt["txt"][0][:50000]
-            self.gt["imnames"] = self.agt["imnames"][0][:50000]
-            self.gt["charBB"] = self.agt["charBB"][0][:50000]
-            self.gt["wordBB"] = self.agt["wordBB"][0][:50000]
+            self.gt["txt"] = self.agt["txt"][0]#[:50000]
+            self.gt["imnames"] = self.agt["imnames"][0]#[:50000]
+            self.gt["charBB"] = self.agt["charBB"][0]#[:50000]
+            self.gt["wordBB"] = self.agt["wordBB"][0]#[:50000]
         else:
             self.gt["txt"] = self.agt["txt"][0][50000:60000]
             self.gt["imnames"] = self.agt["imnames"][0][50000:60000]
@@ -110,13 +110,18 @@ class SynthText(Dataset):
                         x0, y0, x1, y1, x2, y2, x3, y3 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2)), int(round(x3)), int(round(y3))
                         char_boxes.append([x0, y0, x1, y1, x2, y2, x3, y3])
                         box, deta_x, deta_y = utils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
-                        if deta_x == 0 or deta_y == 0:
+                        if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
+                            print(idx, deta_x, deta_y)
                             char_index += 1
                             continue
-
-                        gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
-                        pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
-                        res = utils.aff_gaussian(gaussian, box, pts, deta_y, deta_x)
+                        try:
+                            gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
+                            pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
+                            res = utils.aff_gaussian(gaussian, box, pts, deta_y, deta_x)
+                        except:
+                            char_index += 1
+                            continue
+                        
                         min_x = min(x0, x1, x2, x3)
                         min_y = min(y0, y1, y2, y3)
 
@@ -126,7 +131,7 @@ class SynthText(Dataset):
                             gh, gw = res.shape
                             for th in range(gh):
                                 for tw in range(gw):
-                                    if min_y+th < char_gt.shape[0] and min_x+tw < char_gt.shape[1]:
+                                    if 0 < min_y+th < char_gt.shape[0] and 0 < min_x+tw < char_gt.shape[1]:
                                         try:
                                             char_gt[min_y+th, min_x+tw] = max(char_gt[min_y+th, min_x+tw], res[th, tw])
                                         except:
@@ -141,13 +146,14 @@ class SynthText(Dataset):
             for points in affine_boxes:
                 x0, y0, x1, y1, x2, y2, x3, y3 = points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7]
                 box, deta_x, deta_y = utils.find_min_rectangle(points)
-                if deta_x == 0 or deta_y == 0:
-                    char_index += 1
+                if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
                     continue
-
-                gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
-                pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
-                res = utils.aff_gaussian(gaussian, box, pts,  deta_y, deta_x)
+                try:
+                    gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
+                    pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
+                    res = utils.aff_gaussian(gaussian, box, pts,  deta_y, deta_x)
+                except:
+                    continue
                 min_x = min(x0, x1, x2, x3)
                 min_y = min(y0, y1, y2, y3)
 
@@ -157,15 +163,12 @@ class SynthText(Dataset):
                     gh, gw = res.shape
                     for th in range(gh):
                         for tw in range(gw):
-                            if min_y+th < aff_gt.shape[0] and min_x+tw < aff_gt.shape[1]:
+                            if 0 < min_y+th < aff_gt.shape[0] and 0 < min_x+tw < aff_gt.shape[1]:
                                 try:
                                     aff_gt[min_y+th, min_x+tw] = max(aff_gt[min_y+th, min_x+tw], res[th, tw])
                                 except:
                                     print(idx, min_y+th, min_x+tw)
 
-        # 目前还存在的问题
-        # 1. 做变换
-        # 3. 边界小于0的框
         sample = {
             'image': img,
             'char_gt': char_gt,
@@ -185,7 +188,7 @@ if __name__ == "__main__":
     max_item = 0
     for bacth_data in dataLoader:
         print(max_item, bacth_data["image"].shape)
-        max_item + 1
+        max_item += 1
         # images, confidence, local, classification = bacth_data['image'], bacth_data['confidence'], bacth_data["local"], bacth_data['classification']
         # print(images.shape, confidence.shape, local.shape, classification.shape)
         # # confidence = confidence>0
