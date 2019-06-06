@@ -6,7 +6,11 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
 
-import utils
+try:
+    import datautils
+except:
+    from . import datautils
+
 
 class SynthText(Dataset):
     def __init__(self, data_dir_path=None, data_file_name=None, istrain=True, image_size=(3, 640, 640), down_rate=2):
@@ -23,15 +27,15 @@ class SynthText(Dataset):
         self.istrain = istrain
         self.gt = {}
         if istrain:
-            self.gt["txt"] = self.agt["txt"][0]#[:50000]
-            self.gt["imnames"] = self.agt["imnames"][0]#[:50000]
-            self.gt["charBB"] = self.agt["charBB"][0]#[:50000]
-            self.gt["wordBB"] = self.agt["wordBB"][0]#[:50000]
+            self.gt["txt"] = self.agt["txt"][0][:-1][:-10000]
+            self.gt["imnames"] = self.agt["imnames"][0][:-10000]
+            self.gt["charBB"] = self.agt["charBB"][0][:-10000]
+            self.gt["wordBB"] = self.agt["wordBB"][0][:-10000]
         else:
-            self.gt["txt"] = self.agt["txt"][0][50000:60000]
-            self.gt["imnames"] = self.agt["imnames"][0][50000:60000]
-            self.gt["charBB"] = self.agt["charBB"][0][50000:60000]
-            self.gt["wordBB"] = self.agt["wordBB"][0][50000:60000]
+            self.gt["txt"] = self.agt["txt"][0][-10000:]
+            self.gt["imnames"] = self.agt["imnames"][0][-10000:]
+            self.gt["charBB"] = self.agt["charBB"][0][-10000:]
+            self.gt["wordBB"] = self.agt["wordBB"][0][-10000:]
 
         self.image_size = image_size
         self.down_rate = down_rate
@@ -97,7 +101,6 @@ class SynthText(Dataset):
         for txt in txt_label:
             for strings in txt.split("\n"):
                 for string in strings.split(" "):
-
                     if string == "":
                         continue
                     char_boxes = []
@@ -109,15 +112,15 @@ class SynthText(Dataset):
                         
                         x0, y0, x1, y1, x2, y2, x3, y3 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2)), int(round(x3)), int(round(y3))
                         char_boxes.append([x0, y0, x1, y1, x2, y2, x3, y3])
-                        box, deta_x, deta_y = utils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
+                        box, deta_x, deta_y = datautils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
                         if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
                             # print(idx, deta_x, deta_y)
                             char_index += 1
                             continue
                         try:
-                            gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
+                            gaussian = datautils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
                             pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
-                            res = utils.aff_gaussian(gaussian, box, pts, deta_y, deta_x)
+                            res = datautils.aff_gaussian(gaussian, box, pts, deta_y, deta_x)
                         except:
                             char_index += 1
                             continue
@@ -142,16 +145,16 @@ class SynthText(Dataset):
                     line_boxes.append(char_boxes)
         affine_boxes = []
         for char_boxes in line_boxes:
-            affine_boxes.extend(utils.create_affine_boxes(char_boxes))
+            affine_boxes.extend(datautils.create_affine_boxes(char_boxes))
             for points in affine_boxes:
                 x0, y0, x1, y1, x2, y2, x3, y3 = points[0], points[1], points[2], points[3], points[4], points[5], points[6], points[7]
-                box, deta_x, deta_y = utils.find_min_rectangle(points)
+                box, deta_x, deta_y = datautils.find_min_rectangle(points)
                 if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
                     continue
                 try:
-                    gaussian = utils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
+                    gaussian = datautils.gaussian_kernel_2d_opencv(kernel_size=(deta_y, deta_x))
                     pts = np.float32([[x0, y0], [x1, y1], [x2, y2], [x3, y3]])
-                    res = utils.aff_gaussian(gaussian, box, pts,  deta_y, deta_x)
+                    res = datautils.aff_gaussian(gaussian, box, pts,  deta_y, deta_x)
                 except:
                     continue
                 min_x = min(x0, x1, x2, x3)

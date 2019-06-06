@@ -9,7 +9,7 @@ import numpy as np
 from luo import TicToc
 
 from models import network
-import SynthText
+from dataset import SynthText
 
 def run():
     image_size = (3, 320, 320)
