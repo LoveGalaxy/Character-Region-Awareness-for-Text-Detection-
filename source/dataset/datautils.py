@@ -61,9 +61,10 @@ def find_min_rectangle(points):
     rd_y = max(y1, y2, y3, y4)
     return np.float32([[lt_x, lt_y], [rd_x, lt_y], [rd_x, rd_y], [lt_x, rd_y]]), int(rd_x - lt_x), int(rd_y - lt_y)
 
-def gaussian_kernel_2d_opencv(kernel_size = (3, 3), sigma = 0):
-    ky = cv2.getGaussianKernel(kernel_size[0], sigma)
-    kx = cv2.getGaussianKernel(kernel_size[1], sigma)
+def gaussian_kernel_2d_opencv(kernel_size = (3, 3)):
+
+    ky = cv2.getGaussianKernel(kernel_size[0], int(kernel_size[0] / 4))
+    kx = cv2.getGaussianKernel(kernel_size[1], int(kernel_size[1] / 4))
     return np.multiply(ky, np.transpose(kx))  
 
 def aff_gaussian(gaussian, box, pts, deta_x, deta_y):
@@ -73,6 +74,25 @@ def aff_gaussian(gaussian, box, pts, deta_x, deta_y):
     M = cv2.getPerspectiveTransform(box, pts)
     res = cv2.warpPerspective(gaussian, M, (deta_y, deta_x))
     return res
+
+
+def rotate(angle, image):
+    
+    h, w = image.shape[1:]
+    image = image.transpose((1, 2, 0))
+
+    center = (w//2, h//2)
+    M = cv2.getRotationMatrix2D(center, angle, 1.0)
+    image = cv2.warpAffine(image, M, (w, h))
+    image = image.transpose((2, 0, 1))
+
+    return image, M
+
+def rotate_point(M, x, y):
+    point = np.array([x, y, 1])
+    x, y = M.dot(point)
+    return x, y
+
 
 if __name__ == "__main__":
     boxes = [[0, 0, 5, 5], [5, 0, 10, 15]] #, [2, 1, 4, 3], [1, 3, 4, 5], [5, 2, 5, 4], [3, 4, 4, 6]]

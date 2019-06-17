@@ -1,19 +1,22 @@
 import os
 import cv2
+import random
 import numpy as np
 import scipy.io as scio
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
-
+from skimage import transform as TR
+from torchvision import transforms
 try:
     import datautils
+    import transutils
 except:
     from . import datautils
-
+    from . import transutils
 
 class SynthText(Dataset):
-    def __init__(self, data_dir_path=None, data_file_name=None, istrain=True, image_size=(3, 640, 640), down_rate=2):
+    def __init__(self, data_dir_path=None, random_rote_rate=None, data_file_name=None, istrain=True, image_size=(3, 640, 640), down_rate=2, transform=None):
         # check data path
         if data_dir_path == None:
             data_dir_path = "./data/SynthText/SynthText/"
@@ -39,6 +42,8 @@ class SynthText(Dataset):
 
         self.image_size = image_size
         self.down_rate = down_rate
+        self.transform = transform
+        self.random_rote_rate = random_rote_rate
     
     def __len__(self):
         return self.gt["txt"].shape[0]
@@ -88,11 +93,19 @@ class SynthText(Dataset):
         txt_label = self.gt["txt"][idx]
 
         img, char_label, word_laebl = self.resize(image, char_label, word_laebl)
-        char_label = char_label / self.down_rate
-        word_laebl = word_laebl / self.down_rate
 
-        char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
-        aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        if self.random_rote_rate:
+            angel = random.randint(-self.random_rote_rate, self.random_rote_rate)
+            img, M = datautils.rotate(angel, img)
+
+        # char_label = char_label / self.down_rate
+        # word_laebl = word_laebl / self.down_rate
+
+        # char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        # aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+
+        char_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
+        aff_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
 
         
         line_boxes = []
@@ -109,6 +122,12 @@ class SynthText(Dataset):
                         x1, y1 = char_label[char_index][1]
                         x2, y2 = char_label[char_index][2]
                         x3, y3 = char_label[char_index][3]
+                        
+                        if self.random_rote_rate:
+                            x0, y0 = datautils.rotate_point(M, x0, y0)
+                            x1, y1 = datautils.rotate_point(M, x1, y1)
+                            x2, y2 = datautils.rotate_point(M, x2, y2)
+                            x3, y3 = datautils.rotate_point(M, x3, y3)
                         
                         x0, y0, x1, y1, x2, y2, x3, y3 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2)), int(round(x3)), int(round(y3))
                         char_boxes.append([x0, y0, x1, y1, x2, y2, x3, y3])
@@ -171,7 +190,6 @@ class SynthText(Dataset):
                                     aff_gt[min_y+th, min_x+tw] = max(aff_gt[min_y+th, min_x+tw], res[th, tw])
                                 except:
                                     print(idx, min_y+th, min_x+tw)
-
         sample = {
             'image': img,
             'char_gt': char_gt,
@@ -180,10 +198,20 @@ class SynthText(Dataset):
             # 'line_boxes': line_boxes,
             # 'char_label': char_label
         }
+
+        if self.transform:
+            sample = self.transform(sample)
+
+        sample['char_gt'] = TR.resize(sample['char_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        sample['aff_gt'] = TR.resize(sample['aff_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+
         return sample
         
 if __name__ == "__main__":
-    dataset = SynthText()
+    dataset = SynthText(transform=transforms.Compose([
+                                                    transutils.RandomCrop((400, 400)),
+                                                    transutils.Rescale((640, 640))
+    ]))
     print(len(dataset))
     # idataset = iter(dataset)
     # data = next(idataset)
@@ -191,6 +219,8 @@ if __name__ == "__main__":
     max_item = 0
     for bacth_data in dataLoader:
         print(max_item, bacth_data["image"].shape)
+        print(max_item, bacth_data["char_gt"].shape)
+        print(max_item, bacth_data["aff_gt"].shape)
         max_item += 1
         # images, confidence, local, classification = bacth_data['image'], bacth_data['confidence'], bacth_data["local"], bacth_data['classification']
         # print(images.shape, confidence.shape, local.shape, classification.shape)

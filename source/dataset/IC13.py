@@ -13,61 +13,29 @@ except:
     from . import datautils
 
 
-class ReCTS(Dataset):
-    def __init__(self, data_dir="./data/ReCTS/", dir_list=[1, 2, 3, 4], istrain=True, image_size=(3, 640, 640), down_rate=2):
-        self.sub_dirs = ["ReCTS_part{0}".format(i) for i in dir_list]
+class IC13(Dataset):
+    def __init__(self, data_dir="./data/ICDAR2013/", image_size=(3, 320, 320), isTrain=True, down_rate=2):
+        self.data_dir = data_dir
         self.image_size = image_size
-        image_list = []
-        label_list = []
-        for sub_dir in self.sub_dirs:
-            tmp_label_list = []
-            tmp_label_list.extend([label if label[:2] != "._" else label[2:] for label in os.listdir(os.path.join(data_dir, sub_dir, "gt"))])
-            image_list.extend([os.path.join(data_dir, sub_dir, "img", label[:-5]+".jpg") for label in tmp_label_list])
-            label_list.extend([os.path.join(data_dir, sub_dir, "gt", label) for label in tmp_label_list])
-        if istrain:
-            self.label_list = label_list[:30000]
-            self.image_list = image_list[:30000]
-        else:
-            self.label_list = label_list[30000:]
-            self.image_list = image_list[30000:]
         self.down_rate = down_rate
-        # self.char_to_id, self.id_to_char self.num_classes = self._get_dic(dic_file_path)
+        self.isTrain = isTrain
+        if isTrain:
+            img_path = "./train/Challenge2_Training_Task12_Images/"
+            gt_path = "./train/Challenge2_Training_Task2_GT/"
+            self.img_dir = os.path.join(data_dir, img_path)
+            self.gt_dir = os.path.join(data_dir, gt_path)
+            self.images = os.listdir(self.img_dir)
+        else:
+            img_path = "./test/Challenge2_Test_Task12_Images/"
+            gt_path = "./test/Challenge2_Test_Task2_GT/"
+            self.img_dir = os.path.join(data_dir, img_path)
+            self.gt_dir = os.path.join(data_dir, gt_path)
+            self.images = os.listdir(self.img_dir)
 
     def __len__(self):
-        return len(self.label_list)
-
-    def box_in(self, line, char, thr=0.95):
-        lx0, ly0, lx1, ly1, lx2, ly2, lx3, ly3 = line
-        cx0, cy0, cx1, cy1, cx2, cy2, cx3, cy3 = char
-        
-        l_lt_x = min(lx0, lx1, lx2, lx3)
-        l_lt_y = min(ly0, ly1, ly2, ly3)
-        l_rd_x = max(lx0, lx1, lx2, lx3)
-        l_rd_y = max(ly0, ly1, ly2, ly3)
-
-        c_lt_x = min(cx0, cx1, cx2, cx3)
-        c_lt_y = min(cy0, cy1, cy2, cy3)
-        c_rd_x = max(cx0, cx1, cx2, cx3)
-        c_rd_y = max(cy0, cy1, cy2, cy3)
-
-        S_c = (c_rd_x-c_lt_x) * (c_rd_y - c_lt_y)
-
-        if S_c <= 0:
-            return False
-        overlap_X = (l_rd_x-l_lt_x) + (c_rd_x-cimglt_x) - (max(l_rd_x, c_rd_x) - min(l_lt_x, c_lt_x))
-        overlap_Y = (l_rd_y-l_lt_y) + (c_rd_y-c_lt_y) - (max(l_rd_y, c_rd_y) - min(l_lt_y, c_lt_y))
-        if overlap_X <= 0 or overlap_Y <= 0:
-            return False
-        S_U = overlap_X * overlap_Y
-        
-        if 1 >= S_U / S_c > thr:
-            #print(S_U, S_c, S_U / S_c)
-            return True
-        # print(line, char)
-        # print(S_U, S_c, S_U / S_c)
-        return False
+        return len(self.images)
     
-    def resize(self, image, lines_loc, line_boxes):
+    def resize(self, image, line_boxes):
         w, h = image.size
         img = np.zeros(self.image_size)
         rate = self.image_size[2] / self.image_size[1]
@@ -83,7 +51,6 @@ class ReCTS(Dataset):
                 else:
                     image = image.transpose((2, 0, 1))
             img[:,:resize_h,:] = image
-            lines_loc = lines_loc * (resize_h / h) / self.down_rate
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
@@ -99,76 +66,40 @@ class ReCTS(Dataset):
                     image = image.transpose((2, 0, 1))
 
             img[:,:,:resize_w] = np.array(image)
-            lines_loc = lines_loc * (resize_w / w) / self.down_rate
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
                         line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_w / w) / self.down_rate
-        return img, lines_loc, line_boxes
+        return img, line_boxes
+
 
     def __getitem__(self, idx):
-        image_path = self.image_list[idx]
-        label_path = self.label_list[idx]
+        image_path = os.path.join(self.img_dir, self.images[idx])
+        if self.isTrain:
+            gt_path = os.path.join(self.gt_dir, self.images[idx].split(".")[0] + "_GT.txt")
+        else:
+            gt_path = os.path.join(self.gt_dir, "gt_" + self.images[idx].split(".")[0] + ".txt")
         image = Image.open(image_path)
-        # print(label_path)
-
-        with open(label_path, "r") as f:
-            label_json = json.load(f)
-
-        lines_loc = []
-        chars_loc = []
-        line_boxes = []
-        char_num = 0
-        total_char_num = len(label_json["chars"])
-        for line in label_json["lines"]:
-            label = line["transcription"]
-            if len(label) == 1:
-                line_boxes.append([line["points"]])
-            if label == "###":
-                continue
-            if label != "###":
-                lines_loc.append(line["points"])
-            line_box = []
-            for c in label:
-                
-                while char_num < total_char_num:
-                    c_label = label_json["chars"][char_num]["transcription"]
-                    if c_label == c:
-                        if label_json["chars"][char_num]["points"] != [-1, -1, -1, -1, -1, -1, -1, -1]:
-                            line_box.append(label_json["chars"][char_num]["points"])
-                        char_num += 1
-                        break
-                    char_num += 1
-            # print(label, line_box)
-            line_boxes.append(line_box)
-
+        with open(gt_path, "r") as f:
+            lines = f.readlines()
         
-        # for char in label_json["chars"]:
-        #     label = char["transcription"]
-        #     if label != "###" and char["points"] != [-1, -1, -1, -1, -1, -1, -1, -1]:
-        #         chars_loc.append(char["points"])
-
-        # line_boxes = []
-        # for line in lines_loc:
-        #     line_box = []
-        #     for char in chars_loc:
-        #         if self.box_in(line, char):
-        #             line_box.append(char)
-        #     line_boxes.append(line_box)
-
-        xlines_loc = []
-        xline_boxes = []
-        for loc, box in zip(lines_loc, line_boxes):
-            if box != []:
-                xlines_loc.append(loc)
-                xline_boxes.append(box)
-
-        lines_loc = np.array(xlines_loc)
-        img, lines_loc, line_boxes = self.resize(image, lines_loc, line_boxes)
-
+        line_boxes = []
+        line_box = []
+        for line in lines:
+            if line == '\n':
+                line_boxes.append(line_box)
+                line_box = []
+                continue
+            data = line.split(" ")
+            x0, y0, x3, y3 = data[5:9]
+            x0, y0, x3, y3 = int(x0), int(y0), int(x3), int(y3)
+            line_box.append([x0, y0, x3, y0, x3, y3, x0, y3])
+        line_boxes.append(line_box)
+        
+        img, line_boxes = self.resize(image, line_boxes)
         char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
         aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
-
+        
         for line_box in line_boxes:
             for box in line_box:
                 x0, y0, x1, y1, x2, y2, x3, y3 = box
@@ -221,10 +152,9 @@ class ReCTS(Dataset):
                                 try:
                                     aff_gt[min_y+th, min_x+tw] = max(aff_gt[min_y+th, min_x+tw], res[th, tw])
                                 except:
-                                    print(idx, min_y+th, min_x+tw)                
-            
+                                    print(idx, min_y+th, min_x+tw)       
 
-        # print(idx, w, h)
+
         sample = {
             'image': img,
             'char_gt': char_gt,
@@ -233,12 +163,12 @@ class ReCTS(Dataset):
         return sample
 
 if __name__ == "__main__":
-    dataset = ReCTS()
+    dataset = IC13()
     print(len(dataset))
 
-    dataloader = DataLoader(dataset, 100, shuffle=True, num_workers=0)
+    dataloader = DataLoader(dataset, 1, shuffle=False, num_workers=0)
     # idata = iter(dataset)
     # # next(idata)
     # # next(idata)
     for batch_data in dataloader:
-        print(batch_data["image"].shape)
+        print(batch_data["image"].shape, batch_data["char_gt"].shape, batch_data["aff_gt"].shape)
