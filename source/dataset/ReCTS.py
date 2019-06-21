@@ -1,11 +1,13 @@
 import os
 import cv2
 import json
+import random
 import numpy as np
 import scipy.io as scio
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
+from skimage import transform as TR
 
 try:
     import datautils
@@ -14,7 +16,7 @@ except:
 
 
 class ReCTS(Dataset):
-    def __init__(self, data_dir="./data/ReCTS/", dir_list=[1, 2, 3, 4], istrain=True, image_size=(3, 640, 640), down_rate=2):
+    def __init__(self, data_dir="./data/ReCTS/", dir_list=[1, 2, 3, 4], random_rote_rate=None, istrain=True, image_size=(3, 640, 640), down_rate=2, transform=None):
         self.sub_dirs = ["ReCTS_part{0}".format(i) for i in dir_list]
         self.image_size = image_size
         image_list = []
@@ -31,6 +33,8 @@ class ReCTS(Dataset):
             self.label_list = label_list[30000:]
             self.image_list = image_list[30000:]
         self.down_rate = down_rate
+        self.transform = transform
+        self.random_rote_rate = random_rote_rate
         # self.char_to_id, self.id_to_char self.num_classes = self._get_dic(dic_file_path)
 
     def __len__(self):
@@ -83,11 +87,11 @@ class ReCTS(Dataset):
                 else:
                     image = image.transpose((2, 0, 1))
             img[:,:resize_h,:] = image
-            lines_loc = lines_loc * (resize_h / h) / self.down_rate
+            lines_loc = lines_loc * (resize_h / h) #/ self.down_rate
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
-                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_h / h) / self.down_rate
+                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_h / h) #/ self.down_rate
         else:
             resize_w = int(rate_pic * self.image_size[1])
             image = image.resize((resize_w, self.image_size[1]), Image.ANTIALIAS)
@@ -99,11 +103,11 @@ class ReCTS(Dataset):
                     image = image.transpose((2, 0, 1))
 
             img[:,:,:resize_w] = np.array(image)
-            lines_loc = lines_loc * (resize_w / w) / self.down_rate
+            lines_loc = lines_loc * (resize_w / w) #/ self.down_rate
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
-                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_w / w) / self.down_rate
+                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_w / w) #/ self.down_rate
         return img, lines_loc, line_boxes
 
     def __getitem__(self, idx):
@@ -165,14 +169,26 @@ class ReCTS(Dataset):
 
         lines_loc = np.array(xlines_loc)
         img, lines_loc, line_boxes = self.resize(image, lines_loc, line_boxes)
+        if self.random_rote_rate:
+            angel = random.randint(-self.random_rote_rate, self.random_rote_rate)
+            img, M = datautils.rotate(angel, img)
 
-        char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
-        aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        # char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        # aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+
+        char_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
+        aff_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
 
         for line_box in line_boxes:
             for box in line_box:
                 x0, y0, x1, y1, x2, y2, x3, y3 = box
+                if self.random_rote_rate:
+                    x0, y0 = datautils.rotate_point(M, x0, y0)
+                    x1, y1 = datautils.rotate_point(M, x1, y1)
+                    x2, y2 = datautils.rotate_point(M, x2, y2)
+                    x3, y3 = datautils.rotate_point(M, x3, y3)
                 x0, y0, x1, y1, x2, y2, x3, y3 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2)), int(round(x3)), int(round(y3))
+                
                 minbox, deta_x, deta_y = datautils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
                 if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
                     continue
@@ -230,6 +246,11 @@ class ReCTS(Dataset):
             'char_gt': char_gt,
             'aff_gt': aff_gt,
         }
+        if self.transform:
+            sample = self.transform(sample)
+        sample['char_gt'] = TR.resize(sample['char_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        sample['aff_gt'] = TR.resize(sample['aff_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+
         return sample
 
 if __name__ == "__main__":
