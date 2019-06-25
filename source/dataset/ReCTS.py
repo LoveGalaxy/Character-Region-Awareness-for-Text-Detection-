@@ -16,17 +16,17 @@ except:
 
 
 class ReCTS(Dataset):
-    def __init__(self, data_dir="./data/ReCTS/", dir_list=[1, 2, 3, 4], random_rote_rate=None, istrain=True, image_size=(3, 640, 640), down_rate=2, transform=None):
+    def __init__(self, data_dir_path="./data/ReCTS/", dir_list=[1, 2, 3, 4], random_rote_rate=None, isTrain=True, image_size=(3, 640, 640), down_rate=2, transform=None):
         self.sub_dirs = ["ReCTS_part{0}".format(i) for i in dir_list]
         self.image_size = image_size
         image_list = []
         label_list = []
         for sub_dir in self.sub_dirs:
             tmp_label_list = []
-            tmp_label_list.extend([label if label[:2] != "._" else label[2:] for label in os.listdir(os.path.join(data_dir, sub_dir, "gt"))])
-            image_list.extend([os.path.join(data_dir, sub_dir, "img", label[:-5]+".jpg") for label in tmp_label_list])
-            label_list.extend([os.path.join(data_dir, sub_dir, "gt", label) for label in tmp_label_list])
-        if istrain:
+            tmp_label_list.extend([label if label[:2] != "._" else label[2:] for label in os.listdir(os.path.join(data_dir_path, sub_dir, "gt"))])
+            image_list.extend([os.path.join(data_dir_path, sub_dir, "img", label[:-5]+".jpg") for label in tmp_label_list])
+            label_list.extend([os.path.join(data_dir_path, sub_dir, "gt", label) for label in tmp_label_list])
+        if isTrain:
             self.label_list = label_list[:30000]
             self.image_list = image_list[:30000]
         else:
@@ -58,7 +58,7 @@ class ReCTS(Dataset):
 
         if S_c <= 0:
             return False
-        overlap_X = (l_rd_x-l_lt_x) + (c_rd_x-cimglt_x) - (max(l_rd_x, c_rd_x) - min(l_lt_x, c_lt_x))
+        overlap_X = (l_rd_x-l_lt_x) + (c_rd_x-c_lt_x) - (max(l_rd_x, c_rd_x) - min(l_lt_x, c_lt_x))
         overlap_Y = (l_rd_y-l_lt_y) + (c_rd_y-c_lt_y) - (max(l_rd_y, c_rd_y) - min(l_lt_y, c_lt_y))
         if overlap_X <= 0 or overlap_Y <= 0:
             return False
@@ -170,7 +170,7 @@ class ReCTS(Dataset):
         lines_loc = np.array(xlines_loc)
         img, lines_loc, line_boxes = self.resize(image, lines_loc, line_boxes)
         if self.random_rote_rate:
-            angel = random.randint(-self.random_rote_rate, self.random_rote_rate)
+            angel = random.randint(0-self.random_rote_rate, self.random_rote_rate)
             img, M = datautils.rotate(angel, img)
 
         # char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))

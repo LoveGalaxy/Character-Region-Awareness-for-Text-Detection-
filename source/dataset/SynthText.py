@@ -95,7 +95,7 @@ class SynthText(Dataset):
         img, char_label, word_laebl = self.resize(image, char_label, word_laebl)
 
         if self.random_rote_rate:
-            angel = random.randint(-self.random_rote_rate, self.random_rote_rate)
+            angel = random.randint(0-self.random_rote_rate, self.random_rote_rate)
             img, M = datautils.rotate(angel, img)
 
         # char_label = char_label / self.down_rate

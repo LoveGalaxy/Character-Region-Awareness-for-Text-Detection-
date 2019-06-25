@@ -20,7 +20,7 @@ def run():
     image_size = (3, 640, 640)
     train_dataset = ReCTS.ReCTS(image_size=image_size,
                         random_rote_rate=30,
-                        data_dir="./data/ReCTS/", 
+                        data_dir_path="./data/ReCTS/", 
                        transform=transforms.Compose([
                                     transutils.RandomCrop((480, 480)),
                                     transutils.Rescale((640, 640)),

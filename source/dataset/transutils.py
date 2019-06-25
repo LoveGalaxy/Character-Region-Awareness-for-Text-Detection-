@@ -3,6 +3,7 @@ from torchvision import transforms, utils
 from skimage import io, transform
 import random
 import cv2
+import torch
 
 class RandomCrop(object):
     def __init__(self, output_size):
@@ -103,8 +104,39 @@ class Random_change(object):
         sample = {'image': image, 'char_gt': char_gt, 'aff_gt': aff_gt}
         return sample
     
+def random_resize_collate(batch):
+    size = (320, 416, 480, 576, 640)
+    random_size = size[random.randint(0, 4)]
+    half_size = int(random_size/2)
+    images = []
+    char_gts = []
+    aff_gts = []
+    for data in batch:
+        images.append(data["image"])
+        char_gts.append(data["char_gt"])
+        aff_gts.append(data["aff_gt"])
 
-
+    tr_images = []
+    tr_char_gts = []
+    tr_aff_gts = []
+    for image, char_gt, aff_gt in zip(images, char_gts, aff_gts):
+        image = image.transpose((1, 2, 0))
+        image = transform.resize(image, (random_size, random_size))
+        image = image.transpose((2, 0, 1))
+        char_gt = transform.resize(char_gt, (half_size, half_size))
+        aff_gt = transform.resize(aff_gt, (half_size, half_size))
+        tr_images.append(torch.from_numpy(image))
+        tr_char_gts.append(torch.from_numpy(char_gt))
+        tr_aff_gts.append(torch.from_numpy(aff_gt))
+    tr_images = torch.stack(tr_images, 0)
+    tr_char_gts = torch.stack(tr_char_gts, 0)
+    tr_aff_gts = torch.stack(tr_aff_gts, 0)
+    sample = {
+            'image': tr_images,
+            'char_gt': tr_char_gts,
+            'aff_gt': tr_aff_gts,
+        }
+    return sample
 
 if __name__ == "__main__":
     

@@ -1,36 +1,42 @@
 import os
 import cv2
 import json
+import random
 import numpy as np
 import scipy.io as scio
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
-
+from torchvision import transforms
+from skimage import transform as TR
 try:
     import datautils
+    import transutils
 except:
     from . import datautils
+    from . import transutils
 
 
 class IC13(Dataset):
-    def __init__(self, data_dir="./data/ICDAR2013/", image_size=(3, 320, 320), isTrain=True, down_rate=2):
-        self.data_dir = data_dir
+    def __init__(self, data_dir_path="./data/ICDAR2013/", image_size=(3, 640, 640), isTrain=True, random_rote_rate=None, transform=None, down_rate=2):
+        self.data_dir = data_dir_path
         self.image_size = image_size
         self.down_rate = down_rate
         self.isTrain = isTrain
         if isTrain:
             img_path = "./train/Challenge2_Training_Task12_Images/"
             gt_path = "./train/Challenge2_Training_Task2_GT/"
-            self.img_dir = os.path.join(data_dir, img_path)
-            self.gt_dir = os.path.join(data_dir, gt_path)
+            self.img_dir = os.path.join(data_dir_path, img_path)
+            self.gt_dir = os.path.join(data_dir_path, gt_path)
             self.images = os.listdir(self.img_dir)
         else:
             img_path = "./test/Challenge2_Test_Task12_Images/"
             gt_path = "./test/Challenge2_Test_Task2_GT/"
-            self.img_dir = os.path.join(data_dir, img_path)
-            self.gt_dir = os.path.join(data_dir, gt_path)
+            self.img_dir = os.path.join(data_dir_path, img_path)
+            self.gt_dir = os.path.join(data_dir_path, gt_path)
             self.images = os.listdir(self.img_dir)
+        self.transform = transform
+        self.random_rote_rate = random_rote_rate
 
     def __len__(self):
         return len(self.images)
@@ -54,7 +60,7 @@ class IC13(Dataset):
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
-                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_h / h) / self.down_rate
+                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_h / h) #/ self.down_rate
         else:
             resize_w = int(rate_pic * self.image_size[1])
             image = image.resize((resize_w, self.image_size[1]), Image.ANTIALIAS)
@@ -69,7 +75,7 @@ class IC13(Dataset):
             for i in range(len(line_boxes)):
                 for j in range(len(line_boxes[i])):
                     for k in range(len(line_boxes[i][j])):
-                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_w / w) / self.down_rate
+                        line_boxes[i][j][k] = line_boxes[i][j][k] * (resize_w / w) #/ self.down_rate
         return img, line_boxes
 
 
@@ -97,12 +103,23 @@ class IC13(Dataset):
         line_boxes.append(line_box)
         
         img, line_boxes = self.resize(image, line_boxes)
-        char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
-        aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        if self.random_rote_rate:
+            angel = random.randint(0-self.random_rote_rate, self.random_rote_rate)
+            img, M = datautils.rotate(angel, img)
+        # char_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        # aff_gt = np.zeros((int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        char_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
+        aff_gt = np.zeros((int(self.image_size[1]), int(self.image_size[2])))
+
         
         for line_box in line_boxes:
             for box in line_box:
                 x0, y0, x1, y1, x2, y2, x3, y3 = box
+                if self.random_rote_rate:
+                    x0, y0 = datautils.rotate_point(M, x0, y0)
+                    x1, y1 = datautils.rotate_point(M, x1, y1)
+                    x2, y2 = datautils.rotate_point(M, x2, y2)
+                    x3, y3 = datautils.rotate_point(M, x3, y3)
                 x0, y0, x1, y1, x2, y2, x3, y3 = int(round(x0)), int(round(y0)), int(round(x1)), int(round(y1)), int(round(x2)), int(round(y2)), int(round(x3)), int(round(y3))
                 minbox, deta_x, deta_y = datautils.find_min_rectangle([x0, y0, x1, y1, x2, y2, x3, y3])
                 if deta_x <= 0 or deta_x >= self.image_size[2] or deta_y <= 0 or deta_y >= self.image_size[1]:
@@ -160,6 +177,11 @@ class IC13(Dataset):
             'char_gt': char_gt,
             'aff_gt': aff_gt,
         }
+        if self.transform:
+            sample = self.transform(sample)
+
+        sample['char_gt'] = TR.resize(sample['char_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
+        sample['aff_gt'] = TR.resize(sample['aff_gt'], (int(self.image_size[1]/self.down_rate), int(self.image_size[2]/self.down_rate)))
         return sample
 
 if __name__ == "__main__":
