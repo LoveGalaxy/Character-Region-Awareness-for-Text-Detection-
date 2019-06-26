@@ -4,15 +4,18 @@ import torch.nn as nn
 class Base_with_bn_block(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, up=False):
         super(Base_with_bn_block, self).__init__()
+        self.up = up
         if up:
-            self.conv = nn.ConvTranspose2d(in_channels, out_channels, 2, 2)
-        else:
-            self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=int(kernel_size/2))
+            self.up = nn.Upsample(scale_factor=2, mode="bilinear")
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, padding=int(kernel_size/2))
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
         self._initialize_weights()
     
     def forward(self, x):
+
+        if self.up:
+            x = self.up(x)
         out = self.conv(x)
         out = self.bn(out)
         out = self.relu(out)

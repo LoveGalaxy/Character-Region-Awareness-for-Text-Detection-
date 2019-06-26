@@ -4,3 +4,4 @@ jn/*
 *.ipynb
 *.log
 model/*
+out/*
